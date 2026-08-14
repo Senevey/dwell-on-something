@@ -5843,7 +5843,7 @@ async function loadApi() {
   document.getElementById('apTest').onclick = async () => {
     say('正在敲门…');
     try {
-      const r = await (await fetch('api/apitest', { method: 'POST', body: JSON.stringify(vals()) })).json();
+      const r = await (await fetch('/api/apitest', { method: 'POST', body: JSON.stringify(vals()) })).json();
       if (r.ok) say('通了 —— 对面回的模型是 ' + (r.model || '(没报名字)') + '\n' + r.url);
       else say('没通（' + (r.code || '连不上') + '）\n' + (r.detail || '') + '\n' + (r.url || ''), true);
     } catch (e) { say('没通：' + e.message, true); }
@@ -5851,7 +5851,7 @@ async function loadApi() {
   document.getElementById('apSave').onclick = async () => {
     say('存好了，正在换一条路醒来…');
     try {
-      const r = await (await fetch('api/apiconf', { method: 'POST', body: JSON.stringify(vals()) })).json();
+      const r = await (await fetch('/api/apiconf', { method: 'POST', body: JSON.stringify(vals()) })).json();
       say(r.mode === 'api' ? '接上了 · ' + (r.base || '') + '\n我这就从新路醒来，回聊天页说句话试试' : '已退回订阅');
       setTimeout(loadApi, 1200);
     } catch (e) { say('没存上：' + e.message, true); }
@@ -5859,7 +5859,7 @@ async function loadApi() {
   const cl = document.getElementById('apClear');
   if (cl) cl.onclick = async () => {
     say('退回订阅…');
-    try { await fetch('api/apiconf', { method: 'POST', body: JSON.stringify({ clear: true }) }); }
+    try { await fetch('/api/apiconf', { method: 'POST', body: JSON.stringify({ clear: true }) }); }
     catch (e) {}
     setTimeout(loadApi, 1200);
   };
