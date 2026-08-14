@@ -2,7 +2,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({
       ok: false,
-      code: 'METHOD_NOT_ALLOWED'
+      code: 'METHOD_NOT_ALLOWED',
+      detail: '只接受 POST'
     });
   }
 
@@ -16,58 +17,66 @@ export default async function handler(req, res) {
     const token = String(body.token || '').trim();
     const model = String(body.model_opus || '').trim();
 
-    if (!base) {
+    if (!base || !token || !model) {
       return res.status(400).json({
         ok: false,
-        code: 'NO_BASE',
-        detail: '没有填写接口地址'
+        code: 'MISSING_CONFIG',
+        detail: '接口地址、令牌和模型名都要填写'
       });
     }
 
-    if (!token) {
-      return res.status(400).json({
+    let url;
+
+    try {
+      url = new URL('messages', base + '/').toString();
+    } catch (error) {
+      return res.status(200).json({
         ok: false,
-        code: 'NO_TOKEN',
-        detail: '没有填写令牌'
+        code: 'BAD_URL',
+        detail: `${error.name}: ${error.message}`,
+        base
       });
     }
 
-    if (!model) {
-      return res.status(400).json({
+    let response;
+
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': token,
+          Authorization: `Bearer ${token}`,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 16,
+          messages: [
+            {
+              role: 'user',
+              content: 'Hi'
+            }
+          ]
+        })
+      });
+    } catch (error) {
+      return res.status(200).json({
         ok: false,
-        code: 'NO_MODEL',
-        detail: '没有填写模型名'
+        code: 'UPSTREAM_FETCH_FAILED',
+        detail: `${error.name}: ${error.message}`,
+        url
       });
     }
-
-    const url = `${base}/messages`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': token,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 16,
-        messages: [
-          {
-            role: 'user',
-            content: 'Hi'
-          }
-        ]
-      })
-    });
 
     const text = await response.text();
 
-    let data;
+    let data = null;
+
     try {
       data = JSON.parse(text);
     } catch {
-      data = { raw: text };
+      data = null;
     }
 
     if (!response.ok) {
@@ -76,27 +85,24 @@ export default async function handler(req, res) {
         code: response.status,
         detail:
           data?.error?.message ||
-          data?.error ||
           data?.message ||
-          text ||
-          '接口返回错误',
+          text.slice(0, 1000) ||
+          '中转站返回错误',
         url
       });
     }
 
     return res.status(200).json({
       ok: true,
-      model:
-        data?.model ||
-        model,
+      code: response.status,
+      model: data?.model || model,
       url
     });
-
-  } catch (e) {
+  } catch (error) {
     return res.status(200).json({
       ok: false,
-      code: 'REQUEST_FAILED',
-      detail: e?.message || '请求失败'
+      code: 'HANDLER_FAILED',
+      detail: `${error?.name || 'Error'}: ${error?.message || String(error)}`
     });
   }
 }
